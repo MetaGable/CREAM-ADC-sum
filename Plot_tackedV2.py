@@ -11,7 +11,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import glob as glob
-# import datetime as dt
+import datetime as dt
 import pickle
 from heapq import nsmallest
 merge = pickle.load(open("/home/genec420/misc/merge",'rb'))
@@ -20,7 +20,7 @@ color_list=['tab:blue', 'tab:orange', 'tab:purple', 'tab:red', 'tab:green',
 
 def uni_load_scatter(ribbon_num,which = 'C'):  
     '''First data cut'''
-    x_factor, y_factor = 7, 7
+    x_factor, y_factor = 5, 5
     scatter=[[],[]]
     input_type = '/home/genec420/gain2/C*'
     if which !='C': input_type = '/home/genec420/gain2/no*'
@@ -43,7 +43,7 @@ def uni_load_scatter(ribbon_num,which = 'C'):
     mid_x, mid_y = (np.max(x)+np.min(x))/2, min(y)
     mask3 = [8.4*(i[0]-mid_x)<(i[1]-mid_y) for i in np.transpose([x,y])]
     x,y = x[mask3],y[mask3]
-    print('{} out of {} events loaded'.format(len(x),sum(mask1)))
+    # print('{} out of {} events loaded'.format(len(x),sum(mask1)))
     return x,y
 
 
@@ -119,15 +119,15 @@ def fit_plot(ax1,x,y,sufficient_data, fit):
         fit['reduced_chi'].append(red_chi)
         fit['evt_count'].append(len(x))
         fit['x_y_factor'].append((x_factor,y_factor))
-        print(len(x)," points;    Chi^2 = ", red_chi, )
-    else:
-        print(len(x)," points;    not enough data to fit")
+    #     print(len(x)," points;    Chi^2 = ", red_chi, )
+    # else:
+    #     print(len(x)," points;    not enough data to fit")
 
 
 def choose_fit(ax, x, y, fit, total_plot_num, gain_list):
     sufficient_data = True
     if fit['evt_count']==[]: 
-        print('No fit to choose (all data cut away)')
+        # print('No fit to choose (all data cut away)')
         sufficient_data = False
         return sufficient_data
     evt_num_Rrange = np.min(fit['evt_count']) + 0.1*np.std(fit['evt_count']) + 1
@@ -147,15 +147,15 @@ def choose_fit(ax, x, y, fit, total_plot_num, gain_list):
                         order,round(m,1),reduced_chi[ind],fit['evt_count'][ind]))
         _ = ax.vlines(fit['plot_cut'][ind][1], min(y),max(y), alpha = 0.6, 
                     color=color_list[0], linestyle='--')
-        gain_list.append((m, reduced_chi[ind]))
-        order += 1
         (low_y, low_x) = fit['plot_cut'][ind]
+        gain_list.append((m, reduced_chi[ind],low_y))
+        order += 1
         # min_x, max_x, min_y, max_y = np.min(x), np.max(x), np.min(y), np.max(y)
         # mid_x, mid_y = (np.max(x)+np.min(x))/2, min(y)
         # intercept_x = (low_y-mid_y)/8.4+mid_x
+        (intercept_x, min_x, max_x, mid_x, mid_y, slope) = fit['plot_coord'][ind]
+        slope_range_x = np.linspace(intercept_x,max_x,10)
         if intercept_x < max_x:
-            (intercept_x, min_x, max_x, mid_x, mid_y, slope) = fit['plot_coord'][ind]
-            slope_range_x = np.linspace(intercept_x,max_x,10)
             _ = ax.plot(slope_range_x, slope*(slope_range_x-mid_x)+mid_y, 
                        alpha = 0.5, color=color_list[order%9],linestyle='--')
             _ = ax.hlines(low_y, min_x, intercept_x, alpha = 0.6, color=color_list[order%9], linestyle='--')
@@ -165,7 +165,7 @@ def choose_fit(ax, x, y, fit, total_plot_num, gain_list):
             # print('intercept Beyond bound:',intercept_x, max_x)
             (_, min_x, max_x, _, _, _) = fit['plot_coord'][ind]
             _ = ax.hlines(low_y, min_x, max_x, alpha = 0.6, color=color_list[order%9], linestyle='--')
-        _ = ax.vlines(low_x, min_y, max_y, alpha = 0.6, color=color_list[order%9], linestyle='--') 
+        _ = ax.vlines(low_x, np.min(y), np.max(y), alpha = 0.6, color=color_list[order%9], linestyle='--') 
     return sufficient_data
 
 
@@ -198,12 +198,12 @@ gain_list = [[] for i in range(1000)]
 y_factor_list=[0, -0.1, -0.2, 0.3, -0.4, -0.5]
 x_factor_list=[0.9, 0.6, 0.3, 0]
 n = 2
-# for rib in np.arange(0, 1000, 1):
-for rib in [963,994]:
-    print('-------------------------------plotting raw ADC, ribbon: ',rib,'------------------------------')
+for rib in np.arange(0, 1000, 1):
+# for rib in [558, 941, 931, 475, 963, 944]:
+    # print('-------------------------------plotting raw ADC, ribbon: ',rib,'------------------------------')
     rx,ry=uni_load_scatter(rib,'no ped')
-    print('X data range: ', np.min(rx),' ~ ', np.max(rx), "; ", len(rx), ' events')
-    print('Y data range: ', np.min(ry),' ~ ', np.max(ry), "; ", len(ry), ' events')
+    # print('X data range: ', np.min(rx),' ~ ', np.max(rx), "; ", len(rx), ' events')
+    # print('Y data range: ', np.min(ry),' ~ ', np.max(ry), "; ", len(ry), ' events')
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
     _=fig.suptitle('''layer {0} ribbon {1}: ch{2} mid-range ADC over ch{3} low-range ADC
                    From gain table: Gain = {4}, threshold = {5}'''.format(
@@ -220,12 +220,12 @@ for rib in [963,994]:
     sufficient_data = choose_fit(ax1, rx, ry, fit, n, gain_list[rib])
     plot_labels(ax1,'r',sufficient_data)
     del(x,y,fit,sufficient_data)
-    print('-----------------------------plotting subtracted ADC, ribbon: ',rib,'----------------------------')
+    # print('-----------------------------plotting subtracted ADC, ribbon: ',rib,'----------------------------')
     fit = {'ind':0, 'parameters':[], 'evt_count':[], 'reduced_chi':[],
            'x_y_factor':[], 'plot_cut':[], 'plot_coord':[]}
     cx,cy=uni_load_scatter(rib)
-    print('X data range: ', np.min(cx),' ~ ', np.max(cx), "; ", len(cx), ' events')
-    print('Y data range: ', np.min(cy),' ~ ', np.max(cy), "; ", len(cy), ' events')
+    # print('X data range: ', np.min(cx),' ~ ', np.max(cx), "; ", len(cx), ' events')
+    # print('Y data range: ', np.min(cy),' ~ ', np.max(cy), "; ", len(cy), ' events')
     for x_factor in x_factor_list:
         for y_factor in y_factor_list:
             x,y,sufficient_data = slant_data_cut(rib, cx,cy,x_factor,y_factor,fit)
@@ -237,11 +237,12 @@ for rib in [963,994]:
     fig.tight_layout()
     fn = "scatter_{}_{}".format(merge[rib][0],merge[rib][1])
     plt.savefig(fn)
-    print('get gain2/plots/'+fn+".png")
+    # print('get gain2/plots/'+fn+".png")
+    print('ribbon {}, {}'.format(rib, str(dt.datetime.now())[11:19]))
     plt.close('all')
 
 
-with open('gain_table', 'wb') as fp:
+with open('gain_table_L0', 'wb') as fp:
     pickle.dump(gain_list, fp)
 
 
@@ -252,7 +253,7 @@ with open('gain_table', 'wb') as fp:
 
 
 gain_list = []
-gain_individual_list = pickle.load(open("/home/genec420/gain2/plots/gain_table",'rb'))
+gain_individual_list = pickle.load(open("/home/genec420/gain2/plots/gain_table_L0",'rb'))
 
 count = 0
 for rib_gain in gain_individual_list:
@@ -268,14 +269,22 @@ for rib_gain in gain_individual_list:
     gain_list.append(mean_sum/weight_sum)
 
 
-with open('gain_table_v2', 'wb') as fp:
-    pickle.dump(gain_list, fp)
+# with open('gain_table_v3', 'wb') as fp:
+#     pickle.dump(gain_list, fp)
 
 
+gain_list = pickle.load(open("/home/genec420/gain2/plots/gain_table_v2",'rb'))
 diff = []
 for i in np.arange(1000):
     if gain_list[i]==0: continue
     diff.append(merge[i][4]-gain_list[i])
+
+
+# gain_list2 = pickle.load(open("/home/genec420/gain2/plots/gain_table_v3",'rb'))
+# diff2 = []
+# for i in np.arange(1000):
+#     if gain_list2[i]==0: continue
+#     diff2.append(merge[i][4]-gain_list[i])
 
 
 with open('diff', 'wb') as fp:
@@ -291,6 +300,18 @@ plt.xlabel('gain')
 plt.ylabel('number of ribbons')
 plt.hist(diff,np.arange(-17,18,1))
 plt.xticks(np.arange(-17,18,2))
-plt.savefig('diff_hist')
-    
+plt.savefig('diff_hist_3')
 
+
+# a = np.histogram(diff,np.arange(-17,18,1))
+# b = np.histogram(diff0,np.arange(-17,18,1))
+# c = b[0]-a[0]
+# c
+# plt.figure(dpi=150, figsize=(8, 4))
+# plt.title('change in Gain difference (new fit - old fit)')
+# plt.grid()
+# plt.xlabel('gain')
+# plt.ylabel('number of ribbons')
+# plt.plot(b[1][0:-1],c)
+# _=plt.xticks(np.arange(-17,18,2))
+# plt.savefig('diff_diff_hist2')
