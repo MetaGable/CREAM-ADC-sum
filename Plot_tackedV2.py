@@ -67,7 +67,7 @@ def slant_data_cut(rib, rx, ry, x_factor, y_factor, fit):
         '''not enough data'''
         return x,y,sufficient_data
     x,y = x[mask],y[mask]
-    intercept_x = (low_y-min(y))/8.4+mid_x
+    intercept_x = (low_y-min(y))/merge[rib][4]+mid_x
     fit['plot_coord'].append((intercept_x, np.min(x), np.max(x), mid_x, min(y), merge[rib][4]))
     return x, y, sufficient_data
 
