@@ -125,7 +125,6 @@ def fit_plot(ax1,x,y,sufficient_data, fit):
 
 
 def choose_fit(ax, x, y, fit, total_plot_num, gain_list):
-    sufficient_data = True
     if fit['evt_count']==[]: 
         # print('No fit to choose (all data cut away)')
         sufficient_data = False
@@ -139,23 +138,23 @@ def choose_fit(ax, x, y, fit, total_plot_num, gain_list):
     for minimal in minimals:
         order = 0
         ind = np.where(reduced_chi==minimal)[0][0]
+        (low_y, low_x) = fit['plot_cut'][ind]
         _ = ax.scatter(x, y, alpha = 0.6,s=13)
         m, b = fit['parameters'][ind]
         plot_x = np.linspace(min(x),max(x),10)
         _ = ax.plot(plot_x,m*plot_x+b,alpha = 0.6, 
                     label=r'$fit{0}|{3}events|Gain:{1}|\chi^2_\nu:{2}$'.format(
                         order,round(m,1),reduced_chi[ind],fit['evt_count'][ind]))
-        _ = ax.vlines(fit['plot_cut'][ind][1], min(y),max(y), alpha = 0.6, 
+        _ = ax.vlines(low_x, low_y, max(y), alpha = 0.6, 
                     color=color_list[0], linestyle='--')
-        (low_y, low_x) = fit['plot_cut'][ind]
-        gain_list.append((m, reduced_chi[ind],low_y))
+        gain_list.append((m, reduced_chi[ind], low_y, low_x))
         order += 1
         # min_x, max_x, min_y, max_y = np.min(x), np.max(x), np.min(y), np.max(y)
         # mid_x, mid_y = (np.max(x)+np.min(x))/2, min(y)
         # intercept_x = (low_y-mid_y)/8.4+mid_x
         (intercept_x, min_x, max_x, mid_x, mid_y, slope) = fit['plot_coord'][ind]
-        slope_range_x = np.linspace(intercept_x,max_x,10)
         if intercept_x < max_x:
+            slope_range_x = np.linspace(intercept_x,max_x,10)
             _ = ax.plot(slope_range_x, slope*(slope_range_x-mid_x)+mid_y, 
                        alpha = 0.5, color=color_list[order%9],linestyle='--')
             _ = ax.hlines(low_y, min_x, intercept_x, alpha = 0.6, color=color_list[order%9], linestyle='--')
@@ -165,7 +164,7 @@ def choose_fit(ax, x, y, fit, total_plot_num, gain_list):
             # print('intercept Beyond bound:',intercept_x, max_x)
             (_, min_x, max_x, _, _, _) = fit['plot_coord'][ind]
             _ = ax.hlines(low_y, min_x, max_x, alpha = 0.6, color=color_list[order%9], linestyle='--')
-        _ = ax.vlines(low_x, np.min(y), np.max(y), alpha = 0.6, color=color_list[order%9], linestyle='--') 
+    sufficient_data = True
     return sufficient_data
 
 
