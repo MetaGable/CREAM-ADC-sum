@@ -144,7 +144,7 @@ Lxlim = input('maximum x:\n')
 Rlow_x = input('Formatting the Right Plot Limit\n (if no change needed, press enter):\n minimum x:\n')
 Rxlim = input('maximum x:\n')
 ribbon_ind = ribbon + 50 * layer - 51
-if os.exist('gain_table_L0'):
+if os.path.exists('gain_table_L0'):
     gain_list = pickle.load(open("gain_table_L0",'rb'))
 else:
     gain_list = [[] for i in range(1000)]
