@@ -12,6 +12,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import glob as glob
+import os
 import pickle
 merge = pickle.load(open("/home/genec420/misc/merge",'rb'))
 def load_scatter(ribbon_num,which = 'C'):  
@@ -143,12 +144,10 @@ Lxlim = input('maximum x:\n')
 Rlow_x = input('Formatting the Right Plot Limit\n (if no change needed, press enter):\n minimum x:\n')
 Rxlim = input('maximum x:\n')
 ribbon_ind = ribbon + 50 * layer - 51
-'''
-First time run this:'''
-gain_list = [[] for i in range(1000)]
-'''
-After ganin_table_L0 is added to your directory, run this:'''
-# gain_list = pickle.load(open("/home/genec420/gain2/plots/gain_table_L0",'rb'))
+if os.exist('gain_table_L0'):
+    gain_list = pickle.load(open("gain_table_L0",'rb'))
+else:
+    gain_list = [[] for i in range(1000)]
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 _=fig.suptitle('''layer {0} ribbon {1}: ch{2} mid-range ADC over ch{3} low-range ADC
                From gain table: Gain = {4}, threshold = {5}'''.format(
