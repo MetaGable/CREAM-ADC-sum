@@ -12,8 +12,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import glob as glob
-import os
 import pickle
+import os
 merge = pickle.load(open("/home/genec420/misc/merge",'rb'))
 def load_scatter(ribbon_num,which = 'C'):  
     '''First data cut'''
@@ -84,7 +84,7 @@ def fit_plot(ax,x,y, fit, gain_list):
     gain_list[ribbon_ind] = (m, red_chi, LCut, BCut, ribbon_ind)
     '''store the fit info for selection'''
 
-def plot_labels(ax, x, y, title, low_x='', xlim=''):
+def plot_labels(ax, x, y, title, low_x='', xlim='', tightcuts=False):
     x_factor, y_factor = 1.5, 1
     _=ax.set_title(title,fontdict = {'fontsize' : 17})
     _=ax.legend(loc=2, fontsize='small',framealpha=0.4)
@@ -93,14 +93,21 @@ def plot_labels(ax, x, y, title, low_x='', xlim=''):
     _=ax.grid(alpha=0.5)
     _=ax.scatter(x, y, alpha = 0.6, s=13)
     low_y = np.median(y)-y_factor*np.std(y)
-    if low_x !='':
-        _=ax.set_xlim(left=float(low_x))
-    else:
-        temp = np.median(x)-x_factor*np.std(x)
-        _=ax.set_xlim(left = temp)
-    if xlim != '':
-        _=ax.set_xlim(right=float(xlim))
+    # if low_x !='':
+    #     _=ax.set_xlim(left=float(low_x))
+    # else:
+    #     temp = np.median(x)-x_factor*np.std(x)
+    #     _=ax.set_xlim(left = temp)
+    # if xlim != '':
+    #     _=ax.set_xlim(right=float(xlim))
     _=ax.set_ylim(bottom = low_y)
+    if tightcuts!=False:
+        LCut, RCut, BCut, TCut = tightcuts
+        LCut-=15
+        RCut+=25
+        TCut+=75
+        _=ax.set_xlim(LCut, RCut)
+        _=ax.set_ylim(top = TCut)
 
 def specify_input():
     LCut = float(input('Min x:\n'))
@@ -139,10 +146,10 @@ if which == 'r' or which =='both':
     print('For the Right plot:')
     R_Cut_info, R_Slope_info = specify_input()
 print('')
-Llow_x = input('Formatting the Left Plot Limit\n (if no change needed, press enter):\n minimum x:\n')
-Lxlim = input('maximum x:\n')
-Rlow_x = input('Formatting the Right Plot Limit\n (if no change needed, press enter):\n minimum x:\n')
-Rxlim = input('maximum x:\n')
+# Llow_x = input('Formatting the Left Plot Limit\n (if no change needed, press enter):\n minimum x:\n')
+# Lxlim = input('maximum x:\n')
+# Rlow_x = input('Formatting the Right Plot Limit\n (if no change needed, press enter):\n minimum x:\n')
+# Rxlim = input('maximum x:\n')
 ribbon_ind = ribbon + 50 * layer - 51
 if os.path.exists('gain_table_L0'):
     gain_list = pickle.load(open("gain_table_L0",'rb'))
@@ -161,7 +168,8 @@ if plot1:
     x, y = data_cut(ribbon_ind, ax1, rx, ry, fit, L_Cut_info, L_Slope_info)
     fit_plot(ax1,x,y,fit, gain_list)
     del(x,y,fit)
-plot_labels(ax1,rx, ry, "With pedestal intact", Llow_x, Lxlim)
+# plot_labels(ax1,rx, ry, "With pedestal intact", Llow_x, Lxlim)
+plot_labels(ax1,rx, ry, "With pedestal intact", tightcuts=L_Cut_info)
 del(rx, ry)
 cx,cy=load_scatter(ribbon_ind, 'C')
 if plot2:
@@ -171,12 +179,13 @@ if plot2:
     x, y= data_cut(ribbon_ind, ax2, cx, cy, fit, R_Cut_info, R_Slope_info)
     fit_plot(ax2,x,y,fit,gain_list)
     del(x,y,fit)
-plot_labels(ax2, cx, cy, "Subtracted pedestal with Cmean", Rlow_x, Rxlim)
+# plot_labels(ax2, cx, cy, "Subtracted pedestal with Cmean", Rlow_x, Rxlim)
+plot_labels(ax2, cx, cy, "Subtracted pedestal with Cmean", tightcuts=R_Cut_info)
 del(cx, cy)
 fig.tight_layout()
 fn = "scatter_{}_{}".format(merge[ribbon_ind][0],merge[ribbon_ind][1])
 plt.savefig(fn)
-print('\n get '+fn+".png \n")
+print('#####################################\nget '+fn+".png \n#####################################")
 plt.close('all')
 with open('gain_table_L0', 'wb') as fp:
     pickle.dump(gain_list, fp)
