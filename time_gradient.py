@@ -21,6 +21,8 @@ import pickle
 import datetime as dt
 import matplotlib.dates as mdates
 merge = pickle.load(open("/home/genec420/misc/merge",'rb'))
+color_map='gist_ncar'
+# color_map='brg'
 def lr(layer,ribbon):
     '''converts (layer, ribbon) into (the number of the ribbon from 0~999)'''
     return layer * 50 + ribbon - 51
@@ -40,7 +42,7 @@ directory={'track':'gain2', 'full':'gain3', 'R':'no*', 'C':"C*"}
 def load_scatter(ribbon_num, which = 'C'):  
     if os.path.exists(f"GradientV2_{ribbon_num:03d}{which}"):
         x, y, time, c = pickle.load(open(f"GradientV2_{ribbon_num:03d}{which}",'rb'))
-        print('------- quick load complete -------')
+        print('-------- quick load complete --------')
     else:
         scatter, time, c = [[],[]], [], []
         input_paths = glob.glob(f'/home/genec420/{directory[data_type]}/{directory[which]}')
@@ -66,7 +68,7 @@ def load_scatter(ribbon_num, which = 'C'):
         c=np.array(c)[mask1]
         with open("GradientV2_"+str(ribbon_num).zfill(3)+str(which), 'wb') as fp:
            pickle.dump([x, y, time, c], fp)
-        print('------ quick load created-------')
+        print('-------- quick load created --------')
     return x, y, time, c
 
 def color_date(ax, x, y, c0, dates, windows):
@@ -97,12 +99,16 @@ def color_date(ax, x, y, c0, dates, windows):
                         ind2 = ind
                         '''Plot events in the window'''
                         label = f'{start_day}~{end_day[-4:]}'
-                        _ = ax.scatter(x[ind1:ind2],y[ind1:ind2],c=c0[in1:ind2], marker=2,s=3,label=label)
+                        c_win = plt.cm.get_cmap(color_map)
+                        _ = ax.scatter(x[ind1:ind2],y[ind1:ind2],
+                                       color = c_win(c0[ind1]),
+                                       marker=2, s=4, label=label)
                         break
         mask[ind1:ind2]=[0]*(ind2-ind1)
     '''Plot events outside the window'''
     mask = [bool(i) for i in mask]
-    _ = ax.scatter(x[mask], y[mask], alpha = 0.6, s = 11, c = c0[mask], cmap = 'gist_ncar', label='Rest of the data')    
+    _ = ax.scatter(x[mask], y[mask], alpha = 0.6, s = 11, c = c0[mask],
+                    cmap = color_map, label='Rest of the data')    
 
 
 def data_cut(rib, ax, x, y, fit, Cut_info, Slope_info):
@@ -133,7 +139,6 @@ def data_cut(rib, ax, x, y, fit, Cut_info, Slope_info):
     print('{} data points left finally'.format(len(x)))
     return x, y
 
-# 'gist_ncar', 'hsv', 
 def plot_labels(ax, title, low_x='', xlim='', tightcuts=False):
     _=ax.set_title(title,fontdict = {'fontsize' : 17})
     _=ax.legend(loc=2, fontsize='small',framealpha=0.4)
@@ -167,7 +172,8 @@ def auto():
             parameter_list.append(row)
     for raw_parameters in parameter_list:
         layer, ribbon = raw_parameters[0:2]
-        print('-------------------------------------\nstart layer {}, ribbon {}:'.format(layer, ribbon))
+        print('-------------------------------------\n'+
+              f"{'start layer {}, ribbon {}:'.format(layer, ribbon):^37}")
         parameters = [float(i) if ((ind!=2) & (i!='')) else i for ind, i in enumerate(raw_parameters)]
         L_Cut_info, R_Cut_info = parameters[3:7], parameters[8:12]
         '''Plot individual time windows'''
@@ -183,19 +189,18 @@ def auto():
             length2 = len(glob.glob(f'/home/genec420/gain3/C{end}*'))
             print(f'{length1:3d} files in {start} and {length2:3d} files in {end}')
             ind_shift+=2
-            print(len(raw_parameters)<14+ind_shift)
-            if (len(raw_parameters)<13+ind_shift): break
+            if (len(raw_parameters)<14+ind_shift): break
         ribbon_ind = int(ribbon) + 50 * int(layer) - 51
         fig = plt.figure(dpi=200)
         fig.set_figheight(9)
-        fig.set_figwidth(24)
+        fig.set_figwidth(21)
         ax3 = plt.subplot2grid(shape=(12, 4), loc=(10, 0), rowspan=1, colspan=4)
         _=fig.suptitle('''{2} layer {0} ribbon {1};'''.format(
             merge[ribbon_ind][0],merge[ribbon_ind][1], data_type),fontsize=19)
         rx, ry, time, c0 = load_scatter(ribbon_ind, 'R')
         '''Color reference subplot'''
         dt_time = [dt.datetime.strptime(i,"%Y%m%d-%H%M%S") for i in time]
-        ax3.scatter(dt_time,[0]*len(c0),marker='|',s=200,c=c0,cmap='gist_ncar')
+        ax3.scatter(dt_time,[0]*len(c0),marker='|',s=200,c=c0,cmap=color_map)
         _=ax3.grid(alpha=0.5,axis='x')
         loc = mdates.DayLocator(bymonthday=(1, 16),interval=1)
         _ = ax3.get_xaxis().set_major_locator(loc)
@@ -215,7 +220,7 @@ def auto():
         color_date(ax2, cx, cy, c0, time, windows)
         plot_labels(ax2, "Subtracted pedestal with Cmean", tightcuts=R_Cut_info)
         del(cx, cy, time)
-        fig.tight_layout()
+        # fig.tight_layout()
         fn = "scatter_{:0>2}_{:0>2}".format(merge[ribbon_ind][0],merge[ribbon_ind][1])
         plt.savefig(fn)
         print('\nget time_grad/'+fn+".png \n")
