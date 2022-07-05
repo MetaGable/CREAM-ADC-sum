@@ -14,6 +14,7 @@ import os
 import numpy as np
 import glob as glob
 # import datetime as dt
+import time
 import pickle
 from heapq import nsmallest
 
@@ -28,6 +29,12 @@ color_list=['tab:blue', 'tab:orange', 'tab:purple', 'tab:red', 'tab:green',
 merge = pickle.load(open(merge_path[where],'rb'))
 
 def load_bar(iteration, total, prefix='', suffix='', decimal=1, length=90):
+    if total == -1:
+        """for testing"""
+        for i in np.arange(100):
+            time.sleep(0.04)
+            load_bar(i+1,100,'Display Testing', 'Complete',length = 40)
+        return
     percent = ('{0:.' + str(decimal) + 'f}').format(100 * (iteration/float(total)))
     filled_length = int(length*iteration//total)
     bar = '>' * filled_length + '-' * (length-filled_length)
@@ -35,10 +42,13 @@ def load_bar(iteration, total, prefix='', suffix='', decimal=1, length=90):
     if iteration == total:
         print()
 
+def ind_lr(ind):
+    l = ind // 50 + 1
+    r = ind % 50 + 1
+    return l, r
 
-def lr(layer,ribbon):
-    '''converts (layer, ribbon) into (the number of the ribbon from 0~999)'''
-    return layer*50+ribbon-51
+def lr_ind(l,r):
+    return l * 50 + r - 51
 
 
 def uni_load_scatter(ribbon_num,which = 'C'):  
@@ -58,22 +68,38 @@ def uni_load_scatter(ribbon_num,which = 'C'):
             load_bar(num+1, total)
         scatter = np.array(scatter)    
         with open("F_"+str(ribbon_num)+str(which), 'wb') as fp:
-            pickle.dump(scatter, fp)
+            pickle.dump(scatter, fp)    
     if which =='C':
         mask1 = [(i[0]!=0 and i[1]!=0)and (i[0]<30000) for i in np.transpose(scatter)]
         # x, y = scatter[0][mask1], scatter[1][mask1]
     else:
         mask1 = [i[0]>0 and i[1]>0 for i in np.transpose(scatter)]
-        '''define coordinates for the slanted cut'''
     x, y = scatter[0][mask1], scatter[1][mask1]
-    x_factor, y_factor = 3, 3
+    Length0 = len(x)
+    '''define coordinates for the slanted cut'''
+    x_factor, y_factor = 10, 3
     low_x, low_y = np.median(x)-x_factor*np.std(x),np.median(y)-y_factor*np.std(y)
-    mask2 = [(i[0]>low_x and i[1]>low_y) for i in np.transpose([x,y])]
-    x,y = x[mask2],y[mask2]
-    # mid_x, mid_y = (np.max(x)+np.min(x))/2, min(y)
-    # mask3 = [merge[ribbon_num][4]*(i[0]-mid_x)<(i[1]-mid_y) for i in np.transpose([x,y])]
-    # x,y = x[mask3],y[mask3]
-    return x,y
+    # mask2 = [(i[0]>low_x and i[1]>low_y) for i in np.transpose([x,y])]
+    # x,y = x[mask2],y[mask2]
+    """Jun 13th experiment: separate vertical and horizontal cuts"""
+    try:
+        mask = [i>low_y for i in y]
+        x1,y1 = x[mask],y[mask]
+        low_x = np.median(x1)-x_factor*np.std(x)
+        mask = [i>low_x for i in x1]
+        x2,y2 = x1[mask],y1[mask]
+        mid_x, mid_y = np.max(x2)-(np.max(x2)-np.min(x2))/6, min(y2)
+        mask3 = [merge[ribbon_num][4]*(i[0]-mid_x)<(i[1]-mid_y) for i in np.transpose([x2,y2])]
+        x3,y3 = x2[mask3],y2[mask3]
+        print(f"1st data cut: {Length0} -> {len(x)} events left")
+    except:
+        if len(x2)>80:
+            x, y = x2, y2
+        elif len(x1)>80:
+            x, y = x1, y1
+        print(f"No Cuts could be made, {Length0} events left")
+        return x, y            
+    return x3,y3
 
 
 def slant_data_cut(rib, rx, ry, x_factor, y_factor, fit):
@@ -83,59 +109,30 @@ def slant_data_cut(rib, rx, ry, x_factor, y_factor, fit):
     '''retangular cut at bottom left'''
     mask = [(i[0]>low_x and i[1]>low_y) for i in np.transpose([rx,ry])]
     x,y = rx[mask],ry[mask]
+    """Jun 13th experiment: separate vertical and horizontal cuts"""
+    # mask = [i>low_y for i in ry]
+    # x,y = rx[mask],ry[mask]
+    # low_x = np.median(rx)-x_factor*np.std(rx)
+    # mask = [i>low_x for i in rx]
+    # x,y = rx[mask],ry[mask]
     if sum(mask)<30:
         sufficient_data=False
-        print('not enough data')
-        return x,y,sufficient_data
+        print(f"factors: X={x_factor:<4}, Y={y_factor:<4}; not enough data")
+        return x, y ,sufficient_data
     '''define coordinates for the slanted cut'''
-    mid_x, mid_y = np.min(x)+(np.max(x)-np.min(x))/6, (np.max(y)+np.min(y))/2-(np.max(y)-np.min(y))/3
+    mid_x, mid_y = np.max(x)-(np.max(x)-np.min(x))*(6/7), min(y)
     mask = [merge[rib][4]*(i[0]-mid_x)<(i[1]-mid_y) for i in np.transpose([x,y])]
-    if sum(mask)<30:
-        sufficient_data=False
-        print('not enough data')
-        return x,y,sufficient_data
     x,y = x[mask],y[mask]
-    # print(f"Data cut: {len(rx)} -> {len(x)} events left")
+    if sum(mask)<20:
+        sufficient_data=False
+        print(f"factors: X={x_factor:<4}, Y={y_factor:<4}; not enough data")
+        return x, y ,sufficient_data
+    print(f"factors: X={x_factor:<4}, Y={y_factor:<4}; {len(x):>4} events left")
     intercept_x = (low_y-min(y))/merge[rib][4]+mid_x
     fit['plot_cut'].append((low_y,low_x, x_factor, y_factor))
     fit['plot_coord'].append((intercept_x, np.min(x), np.max(x), mid_x, np.min(y), merge[rib][4], np.max(y)))
     return x, y, sufficient_data
-
-
-def slant_data_cut2(ax1, rx, ry, x_factor, y_factor, fit):
-    low_x, low_y = np.median(rx)-x_factor*np.std(rx),np.median(ry)-y_factor*np.std(ry)
-    sufficient_data = True
-    num = fit['ind']
-    '''retangular cut at bottom left'''
-    mask = [(i[0]>low_x and i[1]>low_y) for i in np.transpose([rx,ry])]
-    fit['plot_cut'].append((low_y,low_x))
-    x,y = rx[mask],ry[mask]
-    if sum(mask)<15:
-            sufficient_data=False
-            '''not enough data'''
-            return x,y,sufficient_data
-    '''define coordinates for the slanted cut'''
-    # mid_x, mid_y = (np.max(x)+np.min(x))/2, (np.max(y)+np.min(y))/2-(np.max(y)-np.min(y))/3
-    mid_x, mid_y = (np.max(x)+np.min(x))/2, min(y)
-    mask = [8.4*(i[0]-mid_x)<(i[1]-mid_y) for i in np.transpose([x,y])]
-    if sum(mask)>10:
-        x,y = x[mask],y[mask]
-        min_x, max_x, min_y, max_y = np.min(x), np.max(x), np.min(y), np.max(y)
-        intercept_x = (low_y-mid_y)/8.4+mid_x
-        _=ax1.vlines(low_x, min_y, max_y, alpha = 0.6, color=color_list[num%9], linestyle='--') 
-        if intercept_x < max_x:
-            slope_range_x = np.linspace(intercept_x,max_x,10)
-            _=ax1.plot(slope_range_x, 8.4*(slope_range_x-mid_x)+mid_y, 
-                       alpha = 0.5, color=color_list[num%9],linestyle='--')
-            _=ax1.hlines(low_y, min_x, intercept_x, alpha = 0.6, color=color_list[num%9], linestyle='--', label = y_factor)
-        else:
-            print('intercept Beyond bound:',intercept_x, max_x)
-            _=ax1.hlines(low_y, min_x, max_x, alpha = 0.6, color=color_list[num%9], linestyle='--')
-    else:
-        sufficient_data=False
-        print('not enough data, #', num)
-    return x,y,sufficient_data
-
+    
 
 def fit_plot(ax1,x,y,sufficient_data, fit):
     if sufficient_data:
@@ -147,16 +144,17 @@ def fit_plot(ax1,x,y,sufficient_data, fit):
         fit['evt_count'].append(len(x))
         fit['x_y_factor'].append((x_factor,y_factor))
     #     print(len(x)," points;    Chi^2 = ", red_chi, )
-    else:
-        print(len(x)," points;    not enough data to fit")
+    # else:
+    #     lenx = len(x)
+    #     print(f"X factor={x_factor}, y factor={y_factor}, {lenx} events left")
 
 
-def choose_fit(ax, x, y, plot_type, fit, total_plot_num, gain_list):
+def choose_fit(ax, x, y, plot_type, fit, total_plot_num, gain_info):
+    _ = ax.scatter(x, y, alpha = 0.6,s=13)
     if fit['evt_count']==[]: 
         print('No fit to choose (all data cut away)')
         sufficient_data = False
-        return sufficient_data, gain_list
-    _ = ax.scatter(x, y, alpha = 0.6,s=13)
+        return sufficient_data, gain_info
     evt_num_Rrange = np.min(fit['evt_count']) + 0.1*np.std(fit['evt_count']) + 1
     # print("min = ", np.min(fit['evt_count']), "std = ", np.std(fit['evt_count']),
     #       'Evt Num cutoff: ', evt_num_Rrange)
@@ -177,7 +175,7 @@ def choose_fit(ax, x, y, plot_type, fit, total_plot_num, gain_list):
         #             color=color_list[0], linestyle='--')
         _ = ax.vlines(low_x, low_y, max_y, alpha = 0.6, 
                     color=color_list[0], linestyle='--')
-        gain_list[rib].append((m, reduced_chi[ind], low_y, low_x, rib))
+        gain_info=(m, reduced_chi[ind], low_y, low_x, rib)
         order += 1
         if intercept_x < max_x:
             slope_range_x = np.linspace(intercept_x,max_x,10)
@@ -199,7 +197,7 @@ def choose_fit(ax, x, y, plot_type, fit, total_plot_num, gain_list):
     _=ax.set_ylim(bottom = min_y, top = max_y)
     _=ax.set_xlim(left = min_x, right = max_x)
     sufficient_data = True
-    return sufficient_data, gain_list
+    return sufficient_data, gain_info
 
 
 def plot_labels(ax, plot_type='r', sufficient_data=True):
@@ -209,29 +207,30 @@ def plot_labels(ax, plot_type='r', sufficient_data=True):
     _=ax.grid(alpha=0.5)
     if plot_type=='r':
         ''' TO DO: make x & y factor as input'''
+        _=ax.set_title("With pedestal intact",fontdict = {'fontsize' : 17})
         if not sufficient_data:
             ax.text(0.5, 0.5, 'not enough data to fit ')
             return
-        _=ax.set_title("With pedestal intact",fontdict = {'fontsize' : 17})
     elif plot_type=='c':
         _=ax.set_title("Subtracted pedestal with Cmean",fontdict = {'fontsize' : 17})
         if not sufficient_data:
             ax.text(0.5, 0.5, 'not enough data to fit ')
             return
+        
 
-
-
-"""For potential improvement, Jun 6th"""
-missing_ribs=[303, 320, 330, 350, 363, 400, 415, 418, 425, 442, 448, 449, 459, 461, 469, 479, 481, 482, 485, 493, 498, 499, 500,
-    506, 508, 509, 512, 519, 531, 535, 559, 565, 568, 572, 580, 582, 585, 587, 599, 601, 606, 611, 620, 638, 645, 649,
-    653, 671, 673, 680, 681, 682, 687, 688, 709, 711, 715, 718, 719, 720, 735, 738, 747, 765, 766, 785, 791, 801, 809,
-    811, 813, 821, 822, 843, 844, 850, 854, 864, 868, 870, 872, 873, 874, 875, 879, 883, 889, 893, 896, 900, 910, 911,
-    918, 920, 930, 935, 937, 945, 954, 955, 957, 958, 959, 962, 971, 977, 978, 981, 987, 988, 990, 991, 993, 994, 997]
-# y_factor_list=[-4, -8, -12]
-# x_factor_list=[1.2, -0.5]
-y_factor_list=[-2, -4, -8, -12]
-x_factor_list=[1.2, -0.5, -1, -1.5]
+y_factor_list=[-2, -4, -6, -8,]
+x_factor_list=[2.2, 1.2, -1, -2.5]
+# """Latest cut parameters for normal full ribbons:"""
+# y_factor_list=[-2, -4, -8, -12]
+# x_factor_list=[1.2, -0.5, -1, -1.5]
+# """cut parameters for bad full ribbons:"""
+# y_factor_list=[-10, -100]
+# x_factor_list=[1.2, -0.5, -1, -1.5]
+# """experiment with including all data"""
+# x_factor_list = [10]
+# y_factor_list = [10]
 n = 2
+# n = 1
 if not os.path.exists(table_path[where]):
     with open(table_path[where], 'wb') as fp:
         gain_list = [[] for i in range(1000)]
@@ -239,6 +238,13 @@ if not os.path.exists(table_path[where]):
 else:
     gain_list = pickle.load(open(table_path[where],'rb'))
 
+
+"""For some ribs not showing events, Jun 10th"""
+missing_ribs=[101, 105, 109, 114, 116, 119, 121, 122, 124, 125, 128, 130,
+              184, 201, 211, 227, 229, 237, 241, 268, 300, 308, 364, 401,
+              404, 615, 623, 668, 745, 825, 831, 878, 880, 881, 884, 928]
+'''need to regenerate following ribbons on terminal to append gainlist'''
+# missing_ribs = [881, 880, 831, 825, 668, 268, 241, 184, 130, 128, 125, 122, 121, 119,114]
 
 
 for rib in missing_ribs:
@@ -257,11 +263,11 @@ for rib in missing_ribs:
             # x,y,sufficient_data = slant_data_cut2(ax1, rx,ry,x_factor ,y_factor ,fit)
             fit_plot(ax1,x,y,sufficient_data,fit)
             fit['ind']+=1
-    sufficient_data, gain_list = choose_fit(ax1, rx, ry, 'r', fit, n, gain_list)
+    sufficient_data, gain_info = choose_fit(ax1, rx, ry, 'r', fit, n, gain_list)
     plot_labels(ax1,'r',sufficient_data)
     # ax1.scatter(rx,ry)
     del(x, y, rx, ry, sufficient_data, fit)
-    print('--------- plotting subtracted  ADC ', rib,'-------')
+    print('--------- plotting subtracted  ADC ', rib,'--------')
     fit = {'ind':0, 'parameters':[], 'evt_count':[], 'reduced_chi':[],
            'x_y_factor':[], 'plot_cut':[], 'plot_coord':[]}
     cx,cy = uni_load_scatter(rib)
@@ -271,13 +277,12 @@ for rib in missing_ribs:
             # x,y,sufficient_data = slant_data_cut2(ax2, cx,cy,x_factor,y_factor, fit)
             fit_plot(ax2,x,y,sufficient_data,fit)
             fit['ind']+=1
-    sufficient_data, gain_list = choose_fit(ax2, cx, cy, 'c', fit, n, gain_list)
+    sufficient_data, gain_info = choose_fit(ax2, cx, cy, 'c', fit, n, gain_list)
     plot_labels(ax2,'c', sufficient_data)
     # ax2.scatter(cx, cy)
     del(x, y, cx, cy, sufficient_data, fit)
     fig.tight_layout()
-    saved_gain_list = pickle.load(open(table_path[where],'rb'))
-    saved_gain_list[rib]=gain_list
+    gain_list[rib]=gain_info
     with open(table_path[where], 'wb') as fp:
         pickle.dump(gain_list, fp)
     fn = "scatter_{}_{}F".format(merge[rib][0],merge[rib][1])
@@ -285,47 +290,12 @@ for rib in missing_ribs:
     # print('###################################\n get full_auto/'+fn+".png \n###################################")
     plt.close('all')
 
+for rib in missing_ribs:
+    fn = "get full_auto/scatter_{}_{}F.png".format(merge[rib][0],merge[rib][1])
+    print(fn)
 
-
-# for i in missing_ribs:
-#     print(f'get full_auto/scatter_{ind_lr(i)[0]}_{ind_lr(i)[1]}.png')
-
-# saved_gain_list = pickle.load(open("/home/genec420/gain4/gain_table_L0",'rb'))
-
-
-# with open('gain_table_L0', 'wb') as fp:
-#     pickle.dump([], fp)
-
-# with open('gain_table_L0', 'wb') as fp:
-#     pickle.dump(saved_gain_list.append(gain_list), fp)
-
-# with open('gain_table_L0', 'wb') as fp:
-#     pickle.dump(gain_list, fp)
-'''Mar14th (already done 7, 23, 602, 736, 840, 949)'''
-# missing_ribs = [46, 135, 136, 141, 148, 149, 150, 164, 166, 168, 178, 180
-#                  , 194, 203, 207, 231, 239, 247, 249, 256, 260, 296, 298, 303, 
-#                  320, 330, 350, 363, 400, 415, 418, 425, 442, 448, 449, 459, 
-#                   461, 469, 479, 481, 482, 485, 493, 498, 499, 500, 506, 508,
-#                  509, 512, 519, 531, 535, 559, 565, 568, 572, 580, 582, 585,
-#                  587, 599, 601, 606, 611, 620, 638, 645, 649, 653, 671, 673,
-#                  680, 681, 682, 687, 688, 709, 715, 718, 719, 720, 735, 738,
-#                  747, 765, 766, 785, 791, 801, 809, 811, 813, 821, 822, 843, 
-#                  844, 850, 854, 868, 870, 872, 873, 874, 875, 879, 883, 889,
-#                  893, 896, 900, 910, 911, 918, 920, 930, 935, 937, 945, 954,
-#                  955, 957, 958, 959, 962, 971, 977, 978, 981, 987, 988, 990,
-#                  991, 993, 994]
-# missing_ribs = [131, 137, 138, 139, 140, 147, 153, 158, 160, 181]
-# missing_ribs = [23, 52, 54, 57, 59, 61, 62, 63, 65,
-#                 67, 68, 69, 70, 72, 74, 75, 77, 78, 79, 80, 81, 83, 85, 87, 89, 
-#                 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104,
-#                 106, 107, 108, 110, 111, 112, 113, 115, 117, 118, 120, 123, 126,
-#                 127, 129, 130, 133, 145, 272, 636, 704, 736, 840, 852, 915, 921,
-#                 931, 933, 949, 969, 985, 989]
-# missing_ribs = [ 76, 800, 804, 806, 984]#May 15th
-# missing_ribs = [131, 137, 138, 139, 140, 147, 153, 158, 160, 181,
-#  184, 185, 186, 187, 195, 201, 209, 211, 215, 217, 227, 229, 233, 237, 241,
-#  268, 281, 299, 300, 301, 308, 325, 344, 364, 367, 401, 402, 404, 407, 423,
-#  429, 446, 453, 463, 487, 513, 518, 520, 542, 544, 546, 555, 593, 604, 608,
-#  612, 615, 622, 623, 626, 655, 665, 668, 679, 689, 711, 731, 745, 746, 760,
-#  764, 788, 790, 803, 812, 825, 826, 831, 840, 842, 853, 864, 878, 880, 881,
-#  884, 888, 890, 891, 895, 897, 898, 923, 928, 932, 944, 948, 956, 996, 997]
+for rib in missing_ribs:
+    fn = f"get full_auto/F_{rib}C"
+    print(fn)
+    fn = f"get full_auto/F_{rib}no\ ped"
+    print(fn)
