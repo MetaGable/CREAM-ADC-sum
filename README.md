@@ -4,8 +4,8 @@
 Our goal is to produce L1 data (convert ADC into Energy units). We are currently deriving the gain for mid ranged channels.   
 
 ### Notes on our scripts 
-######## Most if not all requires extensive adjustment to execute in desired directory on desired data.
-######## Most sample of the plots generated could be found in my presentation on the ELMS page, though the display style may vary as the scripts updates. 
+ - Most if not all requires extensive adjustment to execute in desired directory on desired data.
+ -  Most sample of the plots generated could be found in my presentation on the ELMS page, though the display style may vary as the scripts updates. 
 ###### ScatterV8.py
  - Create data files for Plot_tackedV2.py to plot. It organizes event signal based on ribbons and creates pairs containing low range and mid range ADC. 
  - This is the first step of the analysis and will need to be modified and executed again when analyzing mid & high range ADC. 
